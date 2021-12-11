@@ -83,22 +83,15 @@ class Nba_Player():
                         time.sleep(3)
                         game = Nba_Game(game_id=game_id)
                         game.check_trad_1min()
-                        played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"])
+                        played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
                         res = game_info[game_info["Game_ID"] == game_id]
-                        #played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
                         res.reset_index(inplace=True)
-                        played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.iloc[0]["Game_No"], res.iloc[0]["MATCHUP"], res.iloc[0]["GAME_DATE"])
+                        played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
                         pd.to_pickle(played_stats, pk_file_name)
                         self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
                         print("Got the data and put the file '{}'.".format(pk_file_name))
                         time.sleep(3)
-                """TEST
-                self.game_1min_trad_stats[season].sort_values('GAME_ID', inplace=True)
-                self.game_1min_trad_stats[season].reset_index(inplace=True)
-                for idx, row in self.game_1min_trad_stats[season].iterrows():
-                    res = game_info[game_info["Game_ID"] == row["GAME_ID"]]
-                    self.game_1min_trad_stats[season].loc[idx, 'Game_Label'] =  "{:<8}{:<14}{:<14}".format(res.iloc[0]["Game_No"], res.iloc[0]["MATCHUP"], res.iloc[0]["GAME_DATE"])
-                """
+
             pd.to_pickle(self.game_1min_trad_stats[season], self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
 
     def get_played_game_1min_info(self, season):
