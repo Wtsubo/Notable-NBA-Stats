@@ -107,7 +107,7 @@ class Nba_Player():
         return player_season_data
 
 
-    def get_heatmap(self, season, value):
+    def get_heatmap(self, season, value, color):
          data = self.get_played_game_1min_info(season)
          pivot = pd.pivot_table(
              data= data,
@@ -124,7 +124,7 @@ class Nba_Player():
          ax.set_title('{} {} "{}"'.format(self.player_slug, season, value))
          return sns.heatmap(
              pivot.sort_values(by="Game_Label", ascending=False),
-             annot=False, fmt='g', cmap='Blues',
+             annot=False, fmt='g', cmap=color,
              xticklabels=1, yticklabels=1,
              square=True, vmin=0, ax=ax,
          )
