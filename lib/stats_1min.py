@@ -60,7 +60,8 @@ class Nba_Player():
     def add_columns_team_game_info(self):
         for season, value in self.season.items():
             for game in value["game_info"]:
-                game.sort_values('Game_ID', inplace=True)
+                game["GAME_DATETIME"] = pd.to_datetime(game['GAME_DATE'],format='%b %d, %Y')
+                game.sort_values("GAME_DATETIME", inplace=True)
                 game.reset_index(inplace=True)
             for game in value["game_info"]:
                 for idx,row in game.iterrows():
@@ -76,19 +77,22 @@ class Nba_Player():
                     self.game_1min_trad_stats[season]["Game_Label"] = ""
                 for game_id in game_info.Game_ID:
                     pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
+                    res = game_info[game_info["Game_ID"] == game_id]
+                    res.reset_index(inplace=True)
                     if os.path.isfile(pk_file_name):
-                        self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
+                        played_stats = pd.read_pickle(pk_file_name)
+                        played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                        #self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
+                        self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
                         print("Got the data from the file '{}' data.".format(pk_file_name))
                     else:
                         time.sleep(3)
                         game = Nba_Game(game_id=game_id)
                         game.check_trad_1min()
                         played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
-                        res = game_info[game_info["Game_ID"] == game_id]
-                        res.reset_index(inplace=True)
                         played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                        pd.to_pickle(played_stats, pk_file_name)
                         self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
+                        pd.to_pickle(played_stats, pk_file_name)
                         print("Got the data and put the file '{}'.".format(pk_file_name))
                         time.sleep(3)
 
