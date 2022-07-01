@@ -24,7 +24,9 @@ from pprint import pprint
 class Nba_Player():
     def __init__(self, id):
         self.info = commonplayerinfo.CommonPlayerInfo(player_id=id).get_data_frames()
-        self.career_info = playercareerstats.PlayerCareerStats(id).get_data_frames()
+        self.career_info = playercareerstats.PlayerCareerStats(id)
+        self.season_totals_regular_season = self.career_info.season_totals_regular_season.get_data_frame()
+        self.season_totals_post_season = self.career_info.season_totals_post_season.get_data_frame()
         self.player_slug = self.info[0].iloc[0].PLAYER_SLUG
         self.season = {}
         self.sourceFolder = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +39,8 @@ class Nba_Player():
             self.season[season_name] = {}
             self.season[season_name]["team_id"] = []
             self.season[season_name]["game_info"] = []
+            self.season[season_name]["game_pre"] = []
+            self.season[season_name]["game_post"] = []
             self.game_1min_trad_stats[season_name] = "Expected DataFrame object after check data."
 
     def add_current_team(self, season_name):
@@ -45,7 +49,7 @@ class Nba_Player():
             self.season[season_name]["team_id"].append(self.info[0].TEAM_ID)
 
     def add_career_team(self):
-        for idx, row in self.career_info[0].iterrows():
+        for idx, row in self.season_totals_regular_season.iterrows():
             if not row.SEASON_ID in self.season.keys():
                 self.add_season(row.SEASON_ID)
                 self.season[row.SEASON_ID]["team_id"].append(row.TEAM_ID)
@@ -55,6 +59,8 @@ class Nba_Player():
             for id in value["team_id"]:
                 self.season[season]["game_info"].append(
                     teamgamelog.TeamGameLog(id, season=season).get_data_frames()[0])
+            self.season[season]["game_post"] = teamgamelog.TeamGameLog(value["team_id"][-1], season=season, season_type_all_star="Playoffs").get_data_frames()[0]
+            self.season[season]["game_pre"]  = teamgamelog.TeamGameLog(value["team_id"][0], season=season, season_type_all_star="Pre Season").get_data_frames()[0]
         self.add_columns_team_game_info()
 
     def add_columns_team_game_info(self):
@@ -66,6 +72,16 @@ class Nba_Player():
             for game in value["game_info"]:
                 for idx,row in game.iterrows():
                     game.loc[idx, 'Game_No'] = "Game{:0=2}".format(int(idx)+1)
+            value["game_post"]["GAME_DATETIME"] = pd.to_datetime(value["game_post"]['GAME_DATE'],format='%b %d, %Y')
+            value["game_post"].sort_values("GAME_DATETIME", inplace=True)
+            value["game_post"].reset_index(inplace=True)
+            for idx,row in value["game_post"].iterrows():
+                value["game_post"].loc[idx, 'Game_No'] = "Playoff-{:0=2}".format(int(idx)+1)
+            value["game_pre"]["GAME_DATETIME"] = pd.to_datetime(value["game_pre"]['GAME_DATE'],format='%b %d, %Y')
+            value["game_pre"].sort_values("GAME_DATETIME", inplace=True)
+            value["game_pre"].reset_index(inplace=True)
+            for idx,row in value["game_pre"].iterrows():
+                value["game_pre"].loc[idx, 'Game_No'] = "Pre-{:0=2}".format(int(idx)+1)
 
     def check_played_game_1min_info(self):
         for season, value in self.season.items():
@@ -81,7 +97,7 @@ class Nba_Player():
                     res.reset_index(inplace=True)
                     if os.path.isfile(pk_file_name):
                         played_stats = pd.read_pickle(pk_file_name)
-                        played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                        played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
                         #self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
                         self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
                         print("Got the data from the file '{}' data.".format(pk_file_name))
@@ -90,11 +106,33 @@ class Nba_Player():
                         game = Nba_Game(game_id=game_id)
                         game.check_trad_1min()
                         played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
-                        played_stats['Game_Label'] = "{:<8}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                        played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
                         self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
                         pd.to_pickle(played_stats, pk_file_name)
                         print("Got the data and put the file '{}'.".format(pk_file_name))
                         time.sleep(3)
+            for game_id in value["game_post"].Game_ID:
+                pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
+                res = value["game_post"][value["game_post"]["Game_ID"] == game_id]
+                res.reset_index(inplace=True)
+                if os.path.isfile(pk_file_name):
+                    played_stats = pd.read_pickle(pk_file_name)
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    #self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
+                    self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
+                    print("Got the data from the file '{}' data.".format(pk_file_name))
+                else:
+                    time.sleep(3)
+                    game = Nba_Game(game_id=game_id)
+                    game.check_trad_1min()
+                    played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
+                    pd.to_pickle(played_stats, pk_file_name)
+                    print("Got the data and put the file '{}'.".format(pk_file_name))
+                    time.sleep(3)
+            """
+            """
 
             pd.to_pickle(self.game_1min_trad_stats[season], self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
 
@@ -104,7 +142,7 @@ class Nba_Player():
             if row["Game_ID"] in player_season_data.values:
                 True
             else:
-                game_label = "{:<8}{:<14}{:<14}".format(row["Game_No"], row["MATCHUP"], row["GAME_DATE"])
+                game_label = "{:<11}{:<14}{:<14}".format(row["Game_No"], row["MATCHUP"], row["GAME_DATE"])
                 for num in range(0,48):
                     player_season_data = player_season_data.append({'GAME_ID': row["Game_ID"],'MIN': 0, 'PTS': 0, "Timestamp_Minutes": num+1, "Game_Label": game_label}, ignore_index=True)
 
