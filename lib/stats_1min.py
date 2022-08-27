@@ -144,7 +144,8 @@ class Nba_Player():
             else:
                 game_label = "{:<11}{:<14}{:<14}".format(row["Game_No"], row["MATCHUP"], row["GAME_DATE"])
                 for num in range(0,48):
-                    player_season_data = player_season_data.append({'GAME_ID': row["Game_ID"],'MIN': 0, 'PTS': 0, "Timestamp_Minutes": num+1, "Game_Label": game_label}, ignore_index=True)
+                    game_not_play = pd.DataFrame([row["Game_ID"],0,0,num+1,game_label],index=['GAME_ID','MIN','PTS',"Timestamp_Minutes","Game_Label"]).T
+                    player_season_data = pd.concat([player_season_data, game_not_play], ignore_index=True)
 
         return player_season_data
 
