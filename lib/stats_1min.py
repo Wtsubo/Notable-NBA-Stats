@@ -85,41 +85,25 @@ class Nba_Player():
 
     def check_played_game_1min_info(self):
         for season, value in self.season.items():
-            for game_info in value["game_info"]:
-                if not isinstance(self.game_1min_trad_stats[season], pd.core.frame.DataFrame):
+            game_info = value["game_info"][0]
+            if not isinstance(self.game_1min_trad_stats[season], pd.core.frame.DataFrame):
+                if len(game_info.Game_ID) == 0:
+                    box = boxscoretraditionalv2.BoxScoreTraditionalV2.expected_data['PlayerStats']
+                    self.game_1min_trad_stats[season] = pd.DataFrame(columns=box)
+                    self.game_1min_trad_stats[season]["NICKNAME"] = ""
+                else:
                     box = boxscoretraditionalv2.BoxScoreTraditionalV2(game_info.Game_ID[0])
                     self.game_1min_trad_stats[season] = pd.DataFrame(columns=box.get_data_frames()[0].columns)
-                    self.game_1min_trad_stats[season]["Timestamp_Minutes"] = ""
-                    self.game_1min_trad_stats[season]["Game_Label"] = ""
-                for game_id in game_info.Game_ID:
-                    pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
-                    res = game_info[game_info["Game_ID"] == game_id]
-                    res.reset_index(inplace=True)
-                    if os.path.isfile(pk_file_name):
-                        played_stats = pd.read_pickle(pk_file_name)
-                        played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                        #self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
-                        self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
-                        print("Got the data from the file '{}' data.".format(pk_file_name))
-                    else:
-                        time.sleep(3)
-                        game = Nba_Game(game_id=game_id)
-                        game.check_trad_1min()
-                        played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
-                        played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                        self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
-                        pd.to_pickle(played_stats, pk_file_name)
-                        print("Got the data and put the file '{}'.".format(pk_file_name))
-                        time.sleep(3)
-            for game_id in value["game_post"].Game_ID:
+                self.game_1min_trad_stats[season]["Timestamp_Minutes"] = ""
+                self.game_1min_trad_stats[season]["Game_Label"] = ""
+            for game_id in game_info.Game_ID:
                 pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
-                res = value["game_post"][value["game_post"]["Game_ID"] == game_id]
+                res = game_info[game_info["Game_ID"] == game_id]
                 res.reset_index(inplace=True)
                 if os.path.isfile(pk_file_name):
                     played_stats = pd.read_pickle(pk_file_name)
                     played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                    #self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(pd.read_pickle(pk_file_name))
-                    self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
                     print("Got the data from the file '{}' data.".format(pk_file_name))
                 else:
                     time.sleep(3)
@@ -127,25 +111,68 @@ class Nba_Player():
                     game.check_trad_1min()
                     played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
                     played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                    self.game_1min_trad_stats[season] = self.game_1min_trad_stats[season].append(played_stats)
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
                     pd.to_pickle(played_stats, pk_file_name)
                     print("Got the data and put the file '{}'.".format(pk_file_name))
                     time.sleep(3)
+            for game_id in value["game_post"].Game_ID:
+                pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
+                res = value["game_post"][value["game_post"]["Game_ID"] == game_id]
+                res.reset_index(inplace=True)
+                if os.path.isfile(pk_file_name):
+                    played_stats = pd.read_pickle(pk_file_name)
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
+                    print("Got the data from the file '{}' data.".format(pk_file_name))
+                else:
+                    time.sleep(3)
+                    game = Nba_Game(game_id=game_id)
+                    game.check_trad_1min()
+                    played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
+                    pd.to_pickle(played_stats, pk_file_name)
+                    print("Got the data and put the file '{}'.".format(pk_file_name))
+                    time.sleep(3)
+            for game_id in value["game_pre"].Game_ID:
+                pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
+                res = value["game_pre"][value["game_pre"]["Game_ID"] == game_id]
+                res.reset_index(inplace=True)
+                if os.path.isfile(pk_file_name):
+                    played_stats = pd.read_pickle(pk_file_name)
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
+                    print("Got the data from the file '{}' data.".format(pk_file_name))
+                else:
+                    time.sleep(3)
+                    game = Nba_Game(game_id=game_id)
+                    game.check_trad_1min()
+                    played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
+                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
+                    pd.to_pickle(played_stats, pk_file_name)
             """
             """
-
             pd.to_pickle(self.game_1min_trad_stats[season], self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
 
     def get_played_game_1min_info(self, season):
         player_season_data = pd.read_pickle(self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
+        absent_game_check = False
         for idx, row in self.season[season]["game_info"][0].iterrows():
             if row["Game_ID"] in player_season_data.values:
                 True
             else:
+                absent_game_check = True
                 game_label = "{:<11}{:<14}{:<14}".format(row["Game_No"], row["MATCHUP"], row["GAME_DATE"])
                 for num in range(0,48):
                     game_not_play = pd.DataFrame([row["Game_ID"],0,0,num+1,game_label],index=['GAME_ID','MIN','PTS',"Timestamp_Minutes","Game_Label"]).T
                     player_season_data = pd.concat([player_season_data, game_not_play], ignore_index=True)
+
+        if not absent_game_check:
+            game_label = "{:<11}{:<14}{:<14}".format("","","")
+            for num in range(0,48):
+                game_not_play = pd.DataFrame(["DisplayTime",0,0,num+1,game_label],index=['GAME_ID','MIN','PTS',"Timestamp_Minutes","Game_Label"]).T
+                player_season_data = pd.concat([player_season_data, game_not_play], ignore_index=True)
 
         return player_season_data
 
@@ -159,7 +186,11 @@ class Nba_Player():
              index='Game_Label',
              aggfunc= np.mean
          )
-         len_y = len(set(data.GAME_ID))*20//70
+         size = len(set(data.GAME_ID))
+         if size > 3:
+            len_y = size*20//70
+         else:
+            len_y = 4*20//70
          plt.figure(figsize=(14, len_y))
          plt.style.use('seaborn-white')
          plt.rcParams['font.family'] = 'monospace'
@@ -190,7 +221,7 @@ class Nba_Game():
                            end_range   =600*(i+1),
                            timeout=50,
                        ).get_data_frames()[0].assign(Timestamp_Minutes=i+1)
-                self.trad_1min = self.trad_1min.append(data, ignore_index=True)
+                self.trad_1min = pd.concat([self.trad_1min, data], ignore_index=True)
                 time.sleep(5)
             f = lambda min: int(min.split(":")[0])*60 + int(min.split(":")[1])*1 
             self.trad_1min["MIN"] = self.trad_1min["MIN"].apply(f)
