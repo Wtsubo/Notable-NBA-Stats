@@ -47,6 +47,9 @@ class Nba_Player():
         if not season_name in self.season.keys():
             self.add_season(season_name)
             self.season[season_name]["team_id"].append(self.info[0].TEAM_ID)
+        else:
+            if not self.info[0].iloc[0].TEAM_ID in self.season[season_name]["team_id"]:
+                self.season[season_name]["team_id"].append(self.info[0].iloc[0].TEAM_ID)
 
     def add_career_team(self):
         for idx, row in self.season_totals_regular_season.iterrows():
@@ -85,7 +88,10 @@ class Nba_Player():
 
     def check_played_game_1min_info(self):
         for season, value in self.season.items():
-            game_info = value["game_info"][0]
+            if len(value["game_info"]) == 1:
+                game_info = value["game_info"][0]
+            else:
+                game_info = value["game_info"][-1]
             if not isinstance(self.game_1min_trad_stats[season], pd.core.frame.DataFrame):
                 if len(game_info.Game_ID) == 0:
                     box = boxscoretraditionalv2.BoxScoreTraditionalV2.expected_data['PlayerStats']
@@ -108,12 +114,15 @@ class Nba_Player():
                 else:
                     time.sleep(3)
                     game = Nba_Game(game_id=game_id)
-                    game.check_trad_1min()
-                    played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
-                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
-                    pd.to_pickle(played_stats, pk_file_name)
-                    print("Got the data and put the file '{}'.".format(pk_file_name))
+                    if game.check_trad_1min():
+                        played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
+                        played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
+                        self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
+                        pd.to_pickle(played_stats, pk_file_name)
+                        print("Got the data and put the file '{}'.".format(pk_file_name))
+                    else:
+                        print("Error: coudld not get the '{}' game data.".format(game_id))
+
                     time.sleep(3)
             for game_id in value["game_post"].Game_ID:
                 pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
@@ -134,31 +143,17 @@ class Nba_Player():
                     pd.to_pickle(played_stats, pk_file_name)
                     print("Got the data and put the file '{}'.".format(pk_file_name))
                     time.sleep(3)
-            for game_id in value["game_pre"].Game_ID:
-                pk_file_name = self.data_path + "/" + "{}_{}_Game_{}.pkl".format(self.player_slug, season, game_id)
-                res = value["game_pre"][value["game_pre"]["Game_ID"] == game_id]
-                res.reset_index(inplace=True)
-                if os.path.isfile(pk_file_name):
-                    played_stats = pd.read_pickle(pk_file_name)
-                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
-                    print("Got the data from the file '{}' data.".format(pk_file_name))
-                else:
-                    time.sleep(3)
-                    game = Nba_Game(game_id=game_id)
-                    game.check_trad_1min()
-                    played_stats = game.trad_1min_player(self.info[0].iloc[0]["PERSON_ID"]).copy()
-                    played_stats['Game_Label'] = "{:<11}{:<14}{:<14}".format(res.loc[0,"Game_No"], res.loc[0,"MATCHUP"], res.loc[0,"GAME_DATE"])
-                    self.game_1min_trad_stats[season] = pd.concat([self.game_1min_trad_stats[season], played_stats], ignore_index=True)
-                    pd.to_pickle(played_stats, pk_file_name)
-            """
-            """
             pd.to_pickle(self.game_1min_trad_stats[season], self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
 
     def get_played_game_1min_info(self, season):
         player_season_data = pd.read_pickle(self.data_path + "/" + "{}_{}_Games_all.pkl".format(self.player_slug, season))
         absent_game_check = False
-        for idx, row in self.season[season]["game_info"][0].iterrows():
+        if len(self.season[season]["game_info"]) == 1:
+            game_info = self.season[season]["game_info"][0]
+        else:
+            # To display the current teams result.
+            game_info = self.season[season]["game_info"][-1]
+        for idx, row in game_info.iterrows():
             if row["Game_ID"] in player_season_data.values:
                 True
             else:
@@ -167,41 +162,87 @@ class Nba_Player():
                 for num in range(0,48):
                     game_not_play = pd.DataFrame([row["Game_ID"],0,0,num+1,game_label],index=['GAME_ID','MIN','PTS',"Timestamp_Minutes","Game_Label"]).T
                     player_season_data = pd.concat([player_season_data, game_not_play], ignore_index=True)
-
+        # This is the way that the 1 to 48 x value are always displayed on Figure.
         if not absent_game_check:
             game_label = "{:<11}{:<14}{:<14}".format("","","")
             for num in range(0,48):
                 game_not_play = pd.DataFrame(["DisplayTime",0,0,num+1,game_label],index=['GAME_ID','MIN','PTS',"Timestamp_Minutes","Game_Label"]).T
                 player_season_data = pd.concat([player_season_data, game_not_play], ignore_index=True)
 
+        pd.to_pickle(player_season_data, self.data_path + "/" + "{}_{}_Team-All-Games.pkl".format(self.player_slug, season))
         return player_season_data
 
-
-    def get_heatmap(self, season, value, color):
-         data = self.get_played_game_1min_info(season)
-         pivot = pd.pivot_table(
-             data= data,
-             values= value,
-             columns='Timestamp_Minutes',
-             index='Game_Label',
-             aggfunc= np.mean
-         )
-         size = len(set(data.GAME_ID))
-         if size > 3:
+    def get_heatmap(self, season, value, color, save_dir=""):
+        data = self.get_played_game_1min_info(season)
+        pivot = pd.pivot_table(
+            data= data,
+            values= value,
+            columns='Timestamp_Minutes',
+            index='Game_Label',
+            aggfunc= "mean",
+            dropna=False,
+            fill_value=0
+        )
+        size = len(set(data.GAME_ID))
+        if size > 3:
             len_y = size*20//70
-         else:
+        else:
             len_y = 4*20//70
-         plt.figure(figsize=(14, len_y))
-         plt.style.use('seaborn-white')
-         plt.rcParams['font.family'] = 'monospace'
-         ax = plt.axes()
-         ax.set_title('{} {} "{}"'.format(self.player_slug, season, value))
-         return sns.heatmap(
-             pivot.sort_values(by="Game_Label", ascending=False),
-             annot=False, fmt='g', cmap=color,
-             xticklabels=1, yticklabels=1,
-             square=True, vmin=0, ax=ax,
-         )
+        plt.style.use('seaborn-v0_8-white')
+        plt.rcParams['font.family'] = 'monospace'
+        fig, ax = plt.subplots(figsize = (14, len_y))
+        ax.set_title('{} {} "{}"'.format(self.player_slug, season, value))
+        sns.heatmap(
+            pivot.sort_values(by="Game_Label", ascending=False),
+            annot=False, fmt='g', cmap=color,
+            cbar=True, cbar_kws={"aspect": 50,"shrink": .50},
+            xticklabels=1, yticklabels=1,
+            square=True, vmin=0, ax=ax,
+        )
+        if save_dir:
+            file_name = '{}_{}_{}'.format(self.player_slug, season, value)         
+            fig.savefig("{}/{}.png".format(save_dir, file_name), bbox_inches='tight')
+            plt.close()
+
+    def get_heatmap2(self, season, x, y):
+        data = self.get_played_game_1min_info(season)
+        values = ["MIN", "PTS"]
+        pivot1 = pd.pivot_table(
+            data= data,
+            values= values[0],
+            columns='Timestamp_Minutes',
+            index='Game_Label',
+            aggfunc= "mean"
+        )
+        pivot2 = pd.pivot_table(
+            data= data,
+            values= values[1],
+            columns='Timestamp_Minutes',
+            index='Game_Label',
+            aggfunc= np.mean
+        )
+        size = len(set(data.GAME_ID))
+        if size > 3:
+            len_y = size*20//70
+        else:
+            len_y = 4*20//70
+        fig, (axis1,axis2) = plt.subplots(1,2,figsize=(x, y), sharey =True)
+        #fig = plt.figure(figsize=(x, y), sharey =True)
+        #axis1 = fig.add_subplot(2,1,1)
+        #axis2 = fig.add_subplot(2,1,2)
+        sns.heatmap(
+            pivot1.sort_values(by="Game_Label", ascending=False),
+            annot=False, fmt='g', cmap="Blues",
+            xticklabels=1, yticklabels=1,
+            square=True, vmin=0, ax=axis1,
+        );
+        return sns.heatmap(
+            pivot2.sort_values(by="Game_Label", ascending=False),
+            annot=False, fmt='g', cmap="BuGn",
+            xticklabels=1, yticklabels=1,
+            square=True, vmin=0, ax=axis2,
+        );
+
 
 
 class Nba_Game():
@@ -223,21 +264,17 @@ class Nba_Game():
                        ).get_data_frames()[0].assign(Timestamp_Minutes=i+1)
                 self.trad_1min = pd.concat([self.trad_1min, data], ignore_index=True)
                 time.sleep(5)
-            f = lambda min: int(min.split(":")[0])*60 + int(min.split(":")[1])*1 
+            f = lambda min: int(float(min.split(":")[0]))*60 + int(float(min.split(":")[1]))*1 
             self.trad_1min["MIN"] = self.trad_1min["MIN"].apply(f)
-            #self.trad_1min["MIN"] = self.trad_1min["MIN"].apply(self.min_to_sec)
+            return True
+
         except Exception as e:
             pprint(e)
             pprint(e.args)
-            False
+            return False
 
-        finally:
-            True
-
-    def min_to_sec(min):
-        sec = int(min.split(":")[0])*60
-        sec = sec + int(min.split(":")[1])
-        return sec
+        #finally:
+        #    True
 
     def trad_1min_player(self, player_id):
         return self.trad_1min.loc[self.trad_1min['PLAYER_ID'] == player_id]
