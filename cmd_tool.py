@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 from lib import stats_1min
 import os.path
+import re
 import argparse
+from datetime import datetime, timedelta, timezone
 import pytest
 import traceback
 
 if __name__ == '__main__':
+    JST = timezone(timedelta(hours=+9), 'JST')
     parser = argparse.ArgumentParser(description="This tool can make your markdown file.")
     parser.add_argument("-o", "--operation", type=str, default="create_image",
-                        choices=["get_data", "create_image"],  
+                        choices=["get_data", "create_image"],
                         help="Select the operation for the creation.")
     parser.add_argument("-s", "--season", type=str, default="2023-24",
                         help="Put the NBA season. For example '2023-24'.")
     parser.add_argument("-d", "--directory", type=str, default="./",
                         help="Put the file save directory")
     parser.add_argument("name", type=str,
-                        choices=["rui", "yuta"],  
+                        choices=["rui", "yuta"],
                         help="Put the player's name.")
     args = parser.parse_args()
     players_fullname = {"yuta": "Yuta Watanabe", "rui": "Rui Hachimura" }
@@ -27,6 +30,13 @@ if __name__ == '__main__':
         player1min_obj.add_career_team()
         if args.season == current_season:
             player1min_obj.add_current_team(current_season)
+            filepath = os.getcwd() + "/" + current_season + ".md"
+            time_stamp = "Last Update: {0}".format(datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S"))
+            with open(filepath, 'r') as f:
+                doc = f.read()
+            doc = re.sub(r'Last Update:.*', time_stamp, doc)
+            with open(filepath, 'w') as f:
+                f.write(doc)
         if args.season == "2022-23" and args.name == "rui":
             player1min_obj.add_current_team(current_season)
         player1min_obj.check_team_game_info()
