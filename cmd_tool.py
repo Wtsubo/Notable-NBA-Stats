@@ -18,10 +18,10 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--directory", type=str, default="./",
                         help="Put the file save directory")
     parser.add_argument("name", type=str,
-                        choices=["rui", "yuta"],
+                        choices=["rui", "yuta","yuki"],
                         help="Put the player's name.")
     args = parser.parse_args()
-    players_fullname = {"yuta": "Yuta Watanabe", "rui": "Rui Hachimura" }
+    players_fullname = {"yuta": "Yuta Watanabe", "rui": "Rui Hachimura","yuki": "Yuki Kawamura" }
     current_season = "2023-24"
     player= stats_1min.players.find_players_by_full_name(players_fullname[args.name])
     player1min_obj = stats_1min.Nba_Player(player[0]["id"])
