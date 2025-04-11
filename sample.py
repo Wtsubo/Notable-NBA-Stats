@@ -1,26 +1,38 @@
 #!/usr/bin/env python3
 from lib import stats_1min
 import os.path
+import re
+from datetime import datetime, timedelta, timezone
 import pytest
 import traceback
 
 if __name__ == '__main__':
+    JST = timezone(timedelta(hours=+9), 'JST')
     sourceFolder = os.path.dirname(os.path.abspath(__file__))
-    rui   = stats_1min.players.find_players_by_full_name('Rui Hachimura')
-    yuta  = stats_1min.players.find_players_by_full_name('Yuta Watanabe')
     tyuta = stats_1min.players.find_players_by_full_name('Yuta Tabuse')
-    rui_obj = stats_1min.Nba_Player(rui[0]["id"])
-    rui_obj.data_path = sourceFolder + "/data/{}".format(rui_obj.player_slug)
-    rui_obj.add_career_team()
-    rui_obj.add_current_team("2022-23")
-    rui_obj.check_team_game_info()
-    rui_obj.check_played_game_1min_info()
-    yuta_obj = stats_1min.Nba_Player(yuta[0]["id"])
-    yuta_obj.data_path = sourceFolder + "/data/{}".format(yuta_obj.player_slug)
-    yuta_obj.add_career_team()
-    yuta_obj.add_current_team("2022-23")
-    yuta_obj.check_team_game_info()
-    yuta_obj.check_played_game_1min_info()
+    current_season = "2024-25"
+    players = []
+    players.append(stats_1min.players.find_players_by_full_name('Rui Hachimura'))
+    #players.append(stats_1min.players.find_players_by_full_name('Yuta Watanabe'))
+    players.append(stats_1min.players.find_players_by_full_name('Yuki Kawamura'))
+    for player in players:
+        player_obj = stats_1min.Nba_Player(player[0]["id"])
+        player_obj.data_path = sourceFolder + "/data/{}".format(player_obj.player_slug)
+        #player_obj.add_career_team()
+        player_obj.add_current_team(current_season)
+        player_obj.check_team_game_info()
+        player_obj.check_played_game_1min_info()
+        #
+        player_obj.add_career_team()
+        filepath = sourceFolder + "/" + current_season + ".md"
+        time_stamp = "Last Update: {0}".format(datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S"))
+        with open(filepath, 'r') as f:
+            doc = f.read()
+        doc = re.sub(r'Last Update:.*', time_stamp, doc)
+        with open(filepath, 'w') as f:
+            f.write(doc)
+        player_obj.get_heatmap(current_season, "MIN", "Blues", save_dir=sourceFolder + "/images")
+        player_obj.get_heatmap(current_season, "PTS", "BuGn",  save_dir=sourceFolder + "/images")
     """Yuta
     try:
         for idx, row in yuta_obj.season["2020-21"]["game_info"][0].iterrows():
